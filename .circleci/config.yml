@@ -1,0 +1,49 @@
+defaults: &defaults
+  docker:
+    - image: circleci/node:12.13.1
+  working_directory: ~/uitest
+
+aliases:
+  - &save_dependencies
+    key: v1-dependencies-{{ checksum "package-lock.lock" }}
+    paths:
+      - node_modules
+  - &restore_dependencies
+    keys:
+      - v1-dependencies-{{ checksum "package-lock.lock" }}
+      - v1-dependencies-
+
+version: 2.1
+
+jobs:
+  install_dependencies:
+    <<: *defaults
+    steps:
+      - checkout
+      - restore_cache: *restore_dependencies
+      - run: sudo npm install -g npm@latest
+      - run: npm install
+      - save_cache: *save_dependencies
+
+  build_production:
+    <<: *defaults
+    steps:
+      - checkout
+      - restore_cache: *restore_dependencies
+      - run: npx semantic-release
+      - run: npm build
+      - persist_to_workspace:
+          root: ~/uitest
+          paths: .
+      - store_artifacts:
+          path: ~/uitest/build
+
+workflows:
+  version: 2.1
+
+  build:
+    jobs:
+      - install_dependencies
+      - build_production:
+          requires:
+            - install_dependencies
